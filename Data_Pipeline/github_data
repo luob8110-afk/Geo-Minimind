@@ -1,0 +1,41 @@
+import os
+
+# ==========================================
+# 配置区域
+# ==========================================
+# 把你刚刚解压的 GitHub 笔记文件夹路径填在这里
+INPUT_FOLDER = "gis-spicy-hot-pot-master"
+# 这里填你之前已经爬了一部分的那个 txt 文件名
+OUTPUT_FILE = "csdn_gis_corpus.txt"
+
+print("🚀 开始扫描并提取 GitHub 笔记仓库...")
+total_chars = 0
+
+# 🌟 核心秘诀：使用 'a' (追加模式)，确保不会覆盖之前的爬虫数据！
+with open(OUTPUT_FILE, 'a', encoding='utf-8') as outfile:
+    # os.walk 会自动遍历文件夹及所有子文件夹
+    for root, dirs, files in os.walk(INPUT_FOLDER):
+        for file in files:
+            # 🎯 精准狙击：只读取 Markdown 笔记和纯文本文件
+            if file.endswith('.md') or file.endswith('.txt'):
+                file_path = os.path.join(root, file)
+                try:
+                    # 有些 Windows 下的文件可能是 gbk 编码，加个 errors='ignore' 防报错
+                    with open(file_path, 'r', encoding='utf-8', errors='ignore') as infile:
+                        content = infile.read()
+
+                        # 简单清洗：压缩连续的空行
+                        cleaned_content = "\n".join([line.strip() for line in content.split('\n') if line.strip()])
+
+                        if cleaned_content:
+                            outfile.write(cleaned_content + "\n\n")
+                            total_chars += len(cleaned_content)
+                            print(f"  ✅ 成功提取: {file}")
+
+                except Exception as e:
+                    print(f"  ⚠️ 跳过无法读取的文件 {file}: {e}")
+
+print("\n" + "=" * 40)
+print(f"🎉 GitHub 笔记提取完成！")
+print(f"💾 成功向总语料库追加了 {total_chars} 个字符的纯净数据！")
+print("=" * 40)
