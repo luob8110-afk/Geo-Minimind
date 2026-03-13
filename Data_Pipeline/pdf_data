@@ -1,1 +1,102 @@
+import os
+import re
+import fitz  # 依赖库: pip install pymupdf
+from tqdm import tqdm  # 依赖库: pip install tqdm
 
+
+# ==========================================
+# 1. 核心清洗逻辑 (大厂启发式规则过滤)
+# ==========================================
+def clean_and_filter_text(text):
+    # 去除非法空白符
+    text = re.sub(r'[ \t]+', ' ', text)
+    lines = text.split('\n')
+    valid_lines = []
+
+    for line in lines:
+        line = line.strip()
+        # 过滤过短的噪点行
+        if len(line) < 5:
+            continue
+
+        # 过滤乱码和特殊符号过多的行（针对 PDF 表格解析失败的场景）
+        symbol_count = len(re.findall(r'[^\w\s\u4e00-\u9fa5，。！？；：“”‘’（）《》、]', line))
+        if len(line) > 0 and (symbol_count / len(line)) > 0.15:
+            continue
+
+        # 过滤目录行
+        if "...." in line or "……" in line:
+            continue
+
+        valid_lines.append(line)
+
+    # 断行修复拼接
+    merged_text = ""
+    for line in valid_lines:
+        if re.search(r'[。！？；”]$', line):
+            merged_text += line + "\n"
+        else:
+            merged_text += line + " "
+
+    merged_text = re.sub(r'\n{2,}', '\n', merged_text)
+    return merged_text
+
+
+# ==========================================
+# 2. 追加写入管线
+# ==========================================
+def process_pdf_to_txt(input_dir, output_file):
+    print(f"🚀 开始将新的 PDF 规范追加到总语料库中...")
+
+    pdf_files = [f for f in os.listdir(input_dir) if f.endswith('.pdf')]
+    if not pdf_files:
+        print(f"❌ 错误：在 {input_dir} 目录下没有找到 PDF 文件！请放入新的 PDF。")
+        return
+
+    total_pages_processed = 0
+    total_chars_saved = 0
+
+    # 🌟 这里的 'a' 模式是核心！代表 Append (追加)，绝对不会覆盖你之前的爬虫数据
+    with open(output_file, 'a', encoding='utf-8') as outfile:
+        for filename in tqdm(pdf_files, desc="处理 PDF 文件"):
+            file_path = os.path.join(input_dir, filename)
+            try:
+                doc = fitz.open(file_path)
+                for page_num in range(len(doc)):
+                    page = doc.load_page(page_num)
+                    raw_text = page.get_text("text")
+                    cleaned_text = clean_and_filter_text(raw_text)
+
+                    if cleaned_text.strip():
+                        # 追加文本，并多加两个换行符区分段落
+                        outfile.write(cleaned_text + "\n\n")
+                        total_chars_saved += len(cleaned_text)
+
+                total_pages_processed += len(doc)
+                doc.close()
+
+            except Exception as e:
+                print(f"\n⚠️ 处理文件 {filename} 时出错: {e}")
+
+    print("\n" + "=" * 40)
+    print(f"✅ PDF 提取与追加完成！")
+    print(f"📄 本次共处理 PDF: {len(pdf_files)} 个")
+    print(f"📑 本次共解析页数: {total_pages_processed} 页")
+    print(f"💾 成功向总语料库追加: {total_chars_saved} 字符")
+    print(f"📁 总语料库路径: {output_file}")
+    print("=" * 40)
+
+
+if __name__ == "__main__":
+    # 1. 存放新 PDF 的文件夹
+    # ⚠️ 极度重要：放新 PDF 进去之前，记得把之前跑过的老 PDF 移走或删掉，防止重复提取数据污染！
+    INPUT_FOLDER = "pdf_data"
+
+    # 2. 🌟 统一你的总语料库名字！这里填你之前爬虫和 GitHub 笔记写入的那个 txt 文件名
+    OUTPUT_TXT = "csdn_gis_corpus.txt"
+
+    if not os.path.exists(INPUT_FOLDER):
+        os.makedirs(INPUT_FOLDER)
+        print(f"请把新的测绘 PDF 放入 '{INPUT_FOLDER}' 文件夹中，然后重新运行。")
+    else:
+        process_pdf_to_txt(INPUT_FOLDER, OUTPUT_TXT)
