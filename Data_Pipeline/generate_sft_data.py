@@ -6,7 +6,7 @@ from openai import OpenAI  # 因为 Qwen 兼容 OpenAI 接口，我们直接用�
 # ==========================================
 # 1. 配置区域
 # ==========================================
-QWEN_API_KEY = "sk-34de2cd3da49416abf37cc616dab3dbf"
+QWEN_API_KEY = "密钥"
 INPUT_CORPUS = "csdn_gis_corpus.txt"  # 刚才爬的质量一般的纯文本
 OUTPUT_SFT = "sft_gis_data.jsonl"  # 输出的高质量微调数据
 
